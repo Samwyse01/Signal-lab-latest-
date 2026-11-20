@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<link rel="manifest" href="manifest.json">
+<title>Signal Lab Live</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mut:#667085;--bd:#e3e6eb;--ac:#2563eb;--up:#0a8f4e;--dn:#d92d20;--wn:#b54708;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1116;--card:#171b22;--tx:#e8ebf0;--mut:#98a2b3;--bd:#2a303a;--ac:#6ea0ff;--up:#3ddc84;--dn:#ff6b60;--wn:#f5a54a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1116;--card:#171b22;--tx:#e8ebf0;--mut:#98a2b3;--bd:#2a303a;--ac:#6ea0ff;--up:#3ddc84;--dn:#ff6b60;--wn:#f5a54a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0}h2{font-size:16px;margin:0 0 8px}
+.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+textarea{width:100%;height:120px;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,Menlo,monospace}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+button{border:0;border-radius:10px;padding:11px 16px;font:600 14px system-ui;background:var(--ac);color:#fff}
+button.alt{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.set{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.set label{font-size:11px;color:var(--mut);display:block}
+.set input{width:100%;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:14px}
+.sig{font-size:28px;font-weight:800;margin:0}
+.BUY{color:var(--up)}.SELL{color:var(--dn)}.WAIT{color:var(--wn)}
+.bar{height:8px;border-radius:6px;background:var(--bd);overflow:hidden;margin:8px 0}
+.bar i{display:block;height:100%;background:var(--ac)}
+ul{list-style:none;margin:0;padding:0}
+li{padding:8px 0;border-top:1px solid var(--bd);display:flex;gap:10px}
+li:first-child{border-top:0}
+.ok{color:var(--up);font-weight:700}.no{color:var(--dn);font-weight:700}
+.plan{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.plan div{background:var(--bg);border-radius:10px;padding:8px 10px}
+.plan b{display:block;font-size:11px;color:var(--mut);font-weight:600}
+.warn{color:var(--wn);font-size:13px}
+.note{font-size:12px;color:var(--mut)}
+svg{width:100%;height:auto;display:block}
+
+select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:14px}
+.price{font-size:26px;font-weight:800;margin:4px 0}
+details{margin-top:10px}summary{cursor:pointer}
+.h{padding:6px 0;border-top:1px solid var(--bd);font-size:13px;color:var(--tx)}.h:first-child{border-top:0}
+</style>
+</head>
+<body>
+<div id="alertBar" style="display:none;position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:20;padding:12px;border-radius:12px;background:var(--ac);color:#fff;font-weight:600;font-size:14px"></div>
+<main>
+<h1>📈 Signal Lab Live</h1>
+<p class="sub">Live prices for synthetic indices, forex pairs and crypto. A signal is checked each time a candle closes.</p>
+<div class="card">
+<div class="set" style="grid-template-columns:2fr 1fr">
+<div><label>Market</label><select id="sym"></select></div>
+<div><label>Timeframe</label><select id="tf"></select></div>
+</div>
+<p><span id="dot">●</span> <span id="status">Connecting…</span></p>
+<p class="price" id="price">–</p>
+<div class="row"><button id="alerts" class="alt">Enable alerts</button></div>
+<details><summary class="note">Advanced settings</summary>
+<div class="set">
+<div><label>EMA</label><input id="pEma" type="number" value="100"></div>
+<div><label>RSI</label><input id="pRsi" type="number" value="14"></div>
+<div><label>ATR</label><input id="pAtr" type="number" value="14"></div>
+<div><label>Swing bars</label><input id="pSw" type="number" value="50"></div>
+</div>
+<p class="note">Data endpoint (public market data, no login needed)</p>
+<input id="ep" type="text" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)">
+</details>
+</div>
+<div class="card"><h2>💰 Position settings</h2>
+<p class="note">Money values use the <b>minimum lot</b>. Add your balance to see the risk as a percentage.</p>
+<div class="set" style="grid-template-columns:1fr 1fr 1fr">
+<div><label>Balance ($)</label><input id="pBal" type="number" step="any" inputmode="decimal"></div>
+<div><label>Min lot: <span id="pMk">market</span></label><input id="pLot" type="number" step="any" inputmode="decimal"></div>
+<div><label>Contract size</label><input id="pCs" type="number" step="any" inputmode="decimal"></div></div>
+<div class="row"><button id="pSave" class="alt">Save</button></div>
+<p class="note" id="pNote"></p></div>
+<div class="card"><h2>🔭 Market scanner</h2>
+<p class="note" id="scanSt">Watches several markets at once and alerts you when any of them gets a signal.</p>
+<div class="row"><button id="scanBtn">Start scanning</button></div>
+<label class="note" style="display:block;margin-top:8px"><input type="checkbox" id="scanForm"> Also alert when a setup is forming (pullback underway, not yet confirmed)</label>
+<label class="note" style="display:block"><input type="checkbox" id="scanEarly" checked> Also alert on early entry setups (planned limit orders)</label>
+<label class="note" style="display:block"><input type="checkbox" id="scanWake" checked> Keep the screen on while scanning</label>
+<div id="scanList" style="margin-top:8px"></div>
+<details><summary class="note">Choose markets to scan</summary><div id="scanPick" style="margin-top:6px"></div></details>
+</div>
+<div id="out"></div>
+<div class="card" id="calCard"><h2>📅 Economic calendar</h2>
+<div class="set" id="calCtl" style="grid-template-columns:1fr"><div><label>Show</label>
+<select id="calImp"><option value="1">High impact only</option><option value="0,1" selected>Medium and high impact</option><option value="-1,0,1">All events</option></select></div></div>
+<div id="newsBox"></div>
+<div id="cal"></div>
+<p class="note" id="calNote"></p>
+<details id="outBox"><summary class="note">📰 Read a news result</summary>
+<p class="note">Type in the released number to get a bias for this pair, then see whether it agrees with the chart signal.</p>
+<div class="set" style="grid-template-columns:1fr 1fr">
+<div style="grid-column:1/3"><label>Event (this week, high impact)</label><select id="nEv"></select></div>
+<div><label>Currency</label><select id="nCur"></select></div>
+<div><label>Better for the currency when</label><select id="nDir"><option value="1">Higher</option><option value="-1">Lower</option></select></div>
+<div><label>Forecast</label><input id="nFc" type="text" inputmode="decimal" placeholder="e.g. 3.1"></div>
+<div><label>Actual (released)</label><input id="nAc" type="text" inputmode="decimal" placeholder="e.g. 3.4"></div>
+</div>
+<div class="row"><button id="nGo">Read result</button></div>
+<div id="nRes"></div>
+</details>
+<details><summary class="note">How news affects trades</summary>
+<p class="note">High-impact releases (interest-rate decisions, the US jobs report, inflation, GDP) can move a pair sharply within minutes and widen spreads.</p>
+<p class="note">Prices often whip both ways right after a release, so stops can be hit at worse prices than planned.</p>
+<p class="note">Safer habits: avoid opening new trades about 30 minutes before and after a high-impact event for your pair’s currencies, compare the actual result with the forecast once it’s out, and cut your position size or stay out if you’re unsure. Check each event’s time against your own time zone.</p>
+</details></div>
+<div class="card"><h2>📊 Scorecard</h2><div id="trk"></div><div class="row"><button class="alt" id="trkReset">Reset scorecard</button></div></div>
+<div class="card"><h2>Recent signals</h2><div id="hist" class="note"></div></div>
+<div class="card note">Educational tool, not financial advice. Prices come straight from Deriv’s public feed, but signals use simple indicator rules and carry no guarantee. Synthetic indices are generated by an algorithm, so indicator patterns may not hold, and forex prices can jump on news releases, so be careful around major announcements. Crypto is highly volatile and trades around the clock; crypto prices come from Coinbase. Test on a demo account first. This app never places trades.</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const ema=(a,p)=>{const k=2/(p+1),o=[];let e=a[0];a.forEach((v,i)=>{e=i?v*k+e*(1-k):v;o.push(e)});return o};
+function rsi(c,p){const o=Array(c.length).fill(NaN);let g=0,l=0;for(let i=1;i<c.length;i++){const d=c[i]-c[i-1],u=Math.max(d,0),w=Math.max(-d,0);
+if(i<=p){g+=u;l+=w;if(i===p){g/=p;l/=p;o[i]=l?100-100/(1+g/l):100}}else{g=(g*(p-1)+u)/p;l=(l*(p-1)+w)/p;o[i]=l?100-100/(1+g/l):100}}return o}
+function atr(h,l,c,p){const t=h.map((x,i)=>i?Math.max(x-l[i],Math.abs(x-c[i-1]),Math.abs(l[i]-c[i-1])):x-l[i]);
+return t.map((_,i)=>i<p?NaN:t.slice(i-p+1,i+1).reduce((s,v)=>s+v,0)/p)}
+
+
+function macd(C){const a=ema(C,12),b=ema(C,26),l=a.map((v,i)=>v-b[i]),g=ema(l,9);return l.map((v,i)=>v-g[i])}
+function adx(h,l,c,p){const n=h.length,P=[0],M=[0],T=[h[0]-l[0]];
+for(let i=1;i<n;i++){const u=h[i]-h[i-1],d=l[i-1]-l[i];P.push(u>d&&u>0?u:0);M.push(d>u&&d>0?d:0);T.push(Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])))}
+const sm=a=>{const o=Array(n).fill(NaN);let s=0;for(let i=1;i<=p;i++)s+=a[i];o[p]=s;for(let i=p+1;i<n;i++){s=s-s/p+a[i];o[i]=s}return o},t=sm(T),pp=sm(P),mm=sm(M);
+const pdi=t.map((v,i)=>100*pp[i]/v),mdi=t.map((v,i)=>100*mm[i]/v),dx=pdi.map((v,i)=>100*Math.abs(v-mdi[i])/(v+mdi[i])),ax=Array(n).fill(NaN);
+let q=0;for(let i=p;i<2*p;i++)q+=dx[i];ax[2*p-1]=q/p;for(let i=2*p;i<n;i++)ax[i]=(ax[i-1]*(p-1)+dx[i])/p;return{ax,pdi,mdi}}
+function stoch(h,l,c,k){const raw=c.map((v,i)=>{if(i<k-1)return NaN;const H=Math.max(...h.slice(i-k+1,i+1)),L=Math.min(...l.slice(i-k+1,i+1));return H===L?50:100*(v-L)/(H-L)});
+const sma=(a,m)=>a.map((_,i)=>i<m-1||a.slice(i-m+1,i+1).some(isNaN)?NaN:a.slice(i-m+1,i+1).reduce((x,y)=>x+y,0)/m),K=sma(raw,3);return{K,D:sma(K,3)}}
+function boll(c,p){const w=c.slice(-p),m=w.reduce((x,y)=>x+y,0)/p,sd=Math.sqrt(w.reduce((x,y)=>x+(y-m)**2,0)/p);return{m,u:m+2*sd,l:m-2*sd}}
+function analyse(d,P){
+const n=d.length,C=d.map(x=>x.c),H=d.map(x=>x.h),L=d.map(x=>x.l),O=d.map(x=>x.o),i=n-1;
+const E=ema(C,P.e),R=rsi(C,P.r),A=atr(H,L,C,P.a),a=A[i],c=C[i];
+const MH=macd(C),AX=adx(H,L,C,14),ST=stoch(H,L,C,14),BB=boll(C,20),K=ST.K,D=ST.D;
+let hi=-1e18,lo=1e18,hiI=0,loI=0;for(let k=n-P.s;k<n;k++){if(H[k]>hi){hi=H[k];hiI=k}if(L[k]<lo){lo=L[k];loI=k}}
+const rng=hi-lo,slope=E[i]-E[i-5],avgA=A.slice(-50).reduce((s,v)=>s+v,0)/50;
+const crossUp=[0,1,2].some(j=>R[i-j-1]<=40&&R[i-j]>40),crossDn=[0,1,2].some(j=>R[i-j-1]>=60&&R[i-j]<60);
+const kUp=[0,1,2].some(j=>K[i-j-1]<=D[i-j-1]&&K[i-j]>D[i-j]&&K[i-j]<50),kDn=[0,1,2].some(j=>K[i-j-1]>=D[i-j-1]&&K[i-j]<D[i-j]&&K[i-j]>50);
+const mUp=MH[i]>MH[i-1]&&MH[i-1]>MH[i-2],mDn=MH[i]<MH[i-1]&&MH[i-1]<MH[i-2];
+const f=v=>v.toFixed(c>1000?2:c>10?3:5),volOk=rng>=3*a&&a<2*avgA;
+const pbB=(hi-c)/rng,pbS=(c-lo)/rng,ax=AX.ax[i],pd=AX.pdi[i],md=AX.mdi[i],pb=(c-BB.l)/(BB.u-BB.l);
+const fibB=loI<hiI&&pbB>=0.382&&pbB<=0.618,fibS=hiI<loI&&pbS>=0.382&&pbS<=0.618;
+const adxNo=up=>ax<20?`ADX ${ax.toFixed(0)} is low, which points to a sideways market where pullback trades often fail.`:`ADX shows a trend, but ${up?"sellers (−DI)":"buyers (+DI)"} are ahead.`;
+const swingTxt=`The swing is ${(rng/a).toFixed(1)}× ATR and volatility is normal, so there is room to move.`,swingNo=`The swing is too small or volatility is unusually high (swing ${(rng/a).toFixed(1)}× ATR).`;
+const buy=[
+[c>E[i],`Price ${f(c)} is above the ${P.e} EMA (${f(E[i])}), so the trend favours buyers.`,`Price is below the ${P.e} EMA, which goes against buying.`,"Trend"],
+[slope>0,`The EMA is rising over the last 5 candles, confirming upward momentum.`,`The EMA is flat or falling, so the uptrend is not confirmed.`,"Trend"],
+[ax>=20&&pd>md,`ADX ${ax.toFixed(0)} confirms a real trend, with buyers (+DI) ahead of sellers.`,adxNo(true),"Trend"],
+[fibB,`Price pulled back ${(pbB*100).toFixed(0)}% of the last up-swing, inside the 38.2–61.8% Fibonacci zone.`,`Price is not in the Fibonacci buy zone (needs a 38.2–61.8% pullback of an up-swing).`,"Pullback"],
+[crossUp,`RSI crossed back above 40 within 3 candles (now ${R[i].toFixed(1)}), a sign the dip is ending.`,`RSI has not crossed back above 40 recently (now ${R[i].toFixed(1)}).`,"Momentum"],
+[mUp,`The MACD histogram has risen for 2 candles, so momentum is turning up.`,`The MACD histogram is not turning up yet.`,"Momentum"],
+[kUp,`Stochastic crossed up from the lower half (%K ${K[i].toFixed(0)}), another sign the dip is ending.`,`Stochastic has not turned up from the lower half recently.`,"Momentum"],
+[C[i]>O[i],`The latest candle closed bullish, confirming buyers stepped in.`,`The latest candle closed bearish, so buyers have not confirmed.`,"Momentum"],
+[volOk,swingTxt,swingNo,"Volatility"],
+[pb<0.5,`Price is in the lower half of the Bollinger Bands (${(pb*100).toFixed(0)}% of the band width), leaving room to move back up.`,`Price is already in the upper half of the Bollinger Bands, leaving less room for a buy.`,"Volatility"]];
+const sell=[
+[c<E[i],`Price ${f(c)} is below the ${P.e} EMA (${f(E[i])}), so the trend favours sellers.`,`Price is above the ${P.e} EMA, which goes against selling.`,"Trend"],
+[slope<0,`The EMA is falling over the last 5 candles, confirming downward momentum.`,`The EMA is flat or rising, so the downtrend is not confirmed.`,"Trend"],
+[ax>=20&&md>pd,`ADX ${ax.toFixed(0)} confirms a real trend, with sellers (−DI) ahead of buyers.`,adxNo(false),"Trend"],
+[fibS,`Price bounced ${(pbS*100).toFixed(0)}% of the last down-swing, inside the 38.2–61.8% Fibonacci zone.`,`Price is not in the Fibonacci sell zone (needs a 38.2–61.8% bounce of a down-swing).`,"Pullback"],
+[crossDn,`RSI crossed back below 60 within 3 candles (now ${R[i].toFixed(1)}), a sign the bounce is ending.`,`RSI has not crossed back below 60 recently (now ${R[i].toFixed(1)}).`,"Momentum"],
+[mDn,`The MACD histogram has fallen for 2 candles, so momentum is turning down.`,`The MACD histogram is not turning down yet.`,"Momentum"],
+[kDn,`Stochastic crossed down from the upper half (%K ${K[i].toFixed(0)}), another sign the bounce is ending.`,`Stochastic has not turned down from the upper half recently.`,"Momentum"],
+[C[i]<O[i],`The latest candle closed bearish, confirming sellers stepped in.`,`The latest candle closed bullish, so sellers have not confirmed.`,"Momentum"],
+[volOk,swingTxt,swingNo,"Volatility"],
+[pb>0.5,`Price is in the upper half of the Bollinger Bands (${(pb*100).toFixed(0)}% of the band width), leaving room to move back down.`,`Price is already in the lower half of the Bollinger Bands, leaving less room for a sell.`,"Volatility"]];
+const bs=buy.filter(x=>x[0]).length,ss=sell.filter(x=>x[0]).length,gB=buy[0][0]&&fibB,gS=sell[0][0]&&fibS;
+let fac,sc,side="WAIT",forming=false;
+if(gB){fac=buy;sc=bs}else if(gS){fac=sell;sc=ss}else{fac=bs>=ss?buy:sell;sc=Math.max(bs,ss)}
+if(gB||gS){if(sc>=7)side=fac===buy?"BUY":"SELL";else if(sc>=5)forming=true}
+let plan=null,warn=[];
+if(side!=="WAIT"){const b=side==="BUY",sl=b?lo-0.25*a:hi+0.25*a,risk=Math.abs(c-sl),tp=b?c+2*risk:c-2*risk;
+plan={entry:c,sl,tp,alt:b?hi:lo,rr:2,risk};if(risk>8*a){warn.push("Stop loss is more than 8× ATR away; the risk is too wide, so consider skipping this one.");}}
+if(n<150)warn.push("Fewer than 150 candles supplied, so the indicators may be unreliable.");
+let early=null;
+if(side==="WAIT"){const bu=gB&&buy[1][0],se=gS&&sell[1][0];
+if(bu||se){const l5=bu?hi-0.5*rng:lo+0.5*rng,entry=bu?Math.min(c,l5):Math.max(c,l5),sl=bu?hi-0.786*rng-0.25*a:lo+0.786*rng+0.25*a,tp=bu?hi:lo,tp2=bu?hi+0.272*rng:lo-0.272*rng,risk=Math.abs(entry-sl),rr=Math.abs(tp-entry)/risk;
+if(risk>0&&rr>=1.2&&risk<=8*a)early={side:bu?"BUY":"SELL",entry,sl,tp,tp2,rr}}}
+return{side,sc,tot:10,forming,early,fac,plan,warn,f,E,C,n,a,dir:fac===buy?"buy":"sell"}}
+function chart(r){const m=80,C=r.C.slice(-m),E=r.E.slice(-m),p=r.plan;let vals=[...C,...E];if(p)vals.push(p.sl,p.tp);
+const mn=Math.min(...vals),mx=Math.max(...vals),y=v=>150-((v-mn)/(mx-mn||1))*140,x=i=>i*(360/(m-1));
+const pl=(a,col,w)=>`<polyline fill="none" stroke="${col}" stroke-width="${w}" points="${a.map((v,i)=>x(i)+","+y(v)).join(" ")}"/>`;
+const ln=(v,col)=>`<line x1="0" x2="360" y1="${y(v)}" y2="${y(v)}" stroke="${col}" stroke-dasharray="4 3"/>`;
+return`<svg viewBox="0 0 360 160" role="img" aria-label="Price chart">${pl(E,"var(--mut)",1)}${pl(C,"var(--ac)",1.6)}${p?ln(p.sl,"var(--dn)")+ln(p.tp,"var(--up)")+ln(p.entry,"var(--mut)"):""}</svg>
+<p class="note">Blue: price. Grey: EMA.${p?" Dashed: entry, stop (red), target (green).":""}</p>`}
+
+function render(r){const miss=r.fac.filter(x=>!x[0]).map(x=>x[2]).join(" "),msg=r.side==="WAIT"?(r.forming?`Setup forming for a ${r.dir}: the trend and pullback are in place, but only ${r.sc} of ${r.tot} conditions are met. Still missing: ${miss}`:"No clean setup right now. Waiting is a valid position."):`${r.sc} of ${r.tot} conditions line up for a ${r.side.toLowerCase()}.`;
+let h=`<div class="card"><p class="sig ${r.side}">${r.side}</p><div class="bar"><i style="width:${r.sc/r.tot*100}%"></i></div>
+<div>${msg} <span class="note">(Score ${r.sc}/${r.tot}. A call needs 7 or more, including the trend and the Fibonacci pullback.)</span></div></div>`;
+h+=`<div class="card"><h2>Why</h2><ul>${r.fac.map(x=>`<li><span class="${x[0]?"ok":"no"}">${x[0]?"✓":"✗"}</span><span><span class="note">${x[3]} · </span>${x[0]?x[1]:x[2]}</span></li>`).join("")}</ul></div>`;
+if(r.plan){const p=r.plan;h+=`<div class="card"><h2>Trade plan (illustrative)</h2><div class="plan">
+<div><b>Entry</b>${r.f(p.entry)}</div><div><b>Stop loss</b>${r.f(p.sl)}</div>
+<div><b>Take profit (2R)</b>${r.f(p.tp)}</div><div><b>Swing target</b>${r.f(p.alt)}</div></div>
+<p class="note">⏱ Signal age: ${ageNote(r.age||0,+$("tf").value,false)}</p>${moneyHtml(money($("sym").value,p.entry,p.sl,p.tp))}<p class="note">These figures use the minimum lot. Risk only about 1–2% of your balance per trade.</p></div>`}
+if(r.early){const e=r.early;h+=`<div class="card"><h2>⏱ Early entry setup (${e.side.toLowerCase()} limit)</h2><p class="note">Price is pulling back into the Fibonacci zone of a trend, before the confirmations arrive. A pre-planned entry lets you act early instead of chasing.</p><div class="plan"><div><b>Entry (limit order)</b>${r.f(e.entry)}</div><div><b>Stop loss</b>${r.f(e.sl)}</div><div><b>Take profit</b>${r.f(e.tp)}</div><div><b>Stretch target</b>${r.f(e.tp2)}</div></div><p class="note">⏱ Setup age: ${ageNote(e.age||0,+$("tf").value,true)}</p>${moneyHtml(money($("sym").value,e.entry,e.sl,e.tp))}<p class="note">Reward to risk is about ${e.rr.toFixed(1)} to 1. Cancel the order if price breaks the stop level or reaches the target before it fills. Early entries are less confirmed than 7-of-10 signals, so they fail more often. The scorecard shows how they really perform.</p></div>`}
+if(r.warn.length)h+=`<div class="card warn">${r.warn.map(w=>"⚠ "+w).join("<br>")}</div>`;
+h+=`<div class="card">${chart(r)}</div>`;$("out").innerHTML=h}
+
+
+
+const WS_DEFAULT="wss://api.derivws.com/trading/v1/options/ws/public";
+const SYMS=[["R_10","Volatility 10","Synthetic indices"],["R_25","Volatility 25","Synthetic indices"],["R_50","Volatility 50","Synthetic indices"],["R_75","Volatility 75","Synthetic indices"],["R_100","Volatility 100","Synthetic indices"],
+["1HZ10V","Volatility 10 (1s)","Synthetic indices"],["1HZ25V","Volatility 25 (1s)","Synthetic indices"],["1HZ50V","Volatility 50 (1s)","Synthetic indices"],["1HZ75V","Volatility 75 (1s)","Synthetic indices"],["1HZ100V","Volatility 100 (1s)","Synthetic indices"],
+["frxEURUSD","EUR/USD","Forex"],["frxGBPUSD","GBP/USD","Forex"],["frxUSDJPY","USD/JPY","Forex"],["frxAUDUSD","AUD/USD","Forex"],["frxUSDCAD","USD/CAD","Forex"],["frxUSDCHF","USD/CHF","Forex"],["frxNZDUSD","NZD/USD","Forex"],["frxEURGBP","EUR/GBP","Forex"],["frxEURJPY","EUR/JPY","Forex"],["frxGBPJPY","GBP/JPY","Forex"],["frxXAUUSD","Gold (XAU/USD)","Forex"],
+["cb:BTC-USD","Bitcoin (BTC/USD)","Crypto"],["cb:ETH-USD","Ethereum (ETH/USD)","Crypto"],["cb:SOL-USD","Solana (SOL/USD)","Crypto"],["cb:XRP-USD","XRP (XRP/USD)","Crypto"],["cb:LTC-USD","Litecoin (LTC/USD)","Crypto"],["cb:ADA-USD","Cardano (ADA/USD)","Crypto"],["cb:DOGE-USD","Dogecoin (DOGE/USD)","Crypto"],["cb:LINK-USD","Chainlink (LINK/USD)","Crypto"],["cb:AVAX-USD","Avalanche (AVAX/USD)","Crypto"]];
+const TFS=[[60,"1 min"],[300,"5 min"],[900,"15 min"],[1800,"30 min"],[3600,"1 hour"],[14400,"4 hours"]];
+let ws,candles=[],lastTick=0,lastSide=null,first=true,hist=[],poll=0,lastR=null,lastEarly=null,sigTs=0,earlyTs=0;
+const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+{const g={};SYMS.forEach(x=>(g[x[2]]=g[x[2]]||[]).push(x));$("sym").innerHTML=Object.keys(g).map(k=>`<optgroup label="${k}">`+g[k].map(x=>`<option value="${x[0]}">${x[1]}</option>`).join("")+`</optgroup>`).join("")}
+$("tf").innerHTML=TFS.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join("");
+$("sym").value=store.get("sym","R_50");$("tf").value=store.get("tf","300");$("ep").value=store.get("ep",WS_DEFAULT);
+try{hist=JSON.parse(store.get("hist","[]"))}catch(e){hist=[]}
+const fp=v=>v.toFixed(v>1000?2:v>10?3:5);
+function setStatus(t,c){$("status").textContent=t;$("dot").style.color=c||"var(--wn)"}
+function params(){return{e:+$("pEma").value||100,r:+$("pRsi").value||14,a:+$("pAtr").value||14,s:+$("pSw").value||50}}
+function drawHist(){$("hist").innerHTML=hist.length?hist.map(h=>`<div class="h"><b class="${h.side}">${h.kind?h.kind+" ":""}${h.side}</b> ${h.name} ${h.tf} @ ${h.price} · score ${h.score}/${h.tot||6}${h.sl?`<br><span class="note">SL ${h.sl} · TP ${h.tp}</span>`:""}${h.lot?`<br><span class="note">${lotTxt(h.lot)} lot · stop loss −${usd(h.risk)} · profit if TP +${usd(h.rew)}</span>`:""}${h.ts?`<br><span class="note">⏱ ${ageNote(Math.max(0,Math.floor((Date.now()/1000-(h.ts+h.tfs))/h.tfs)),h.tfs,h.kind==="Early")}</span>`:""}<br><span class="note">${h.time}</span></div>`).join(""):"None yet. A call appears here when a closed candle produces one."}
+let AC=null;
+function beep(){try{if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.connect(g);g.connect(AC.destination);o.frequency.value=880;g.gain.value=0.15;o.start();setTimeout(()=>o.stop(),350)}catch(e){}}
+function notify(title,body){try{if(navigator.vibrate)navigator.vibrate([200,100,200])}catch(e){}beep();
+const bar=$("alertBar");bar.textContent="🔔 "+title+" · "+body+" (tap to dismiss)";bar.style.display="block";clearTimeout(notify.t);notify.t=setTimeout(()=>{bar.style.display="none"},90000);
+try{if("Notification" in window&&Notification.permission==="granted"){if(navigator.serviceWorker&&navigator.serviceWorker.ready)navigator.serviceWorker.ready.then(g=>g.showNotification(title,{body,vibrate:[200,100,200]})).catch(()=>new Notification(title,{body}));else new Notification(title,{body})}}catch(e){}}
+function mTxt(sym,en,sl,tp){const m=sym?money(sym,en,sl,tp):null;return m?" · "+lotTxt(m.lot)+" lot · risk "+usd(m.risk)+" · profit "+usd(m.rew):""}
+function alertFor(name,r,price,forming,sym){notify(forming?"Setup forming: "+name:r.side+" signal: "+name,"Price "+fp(price)+" · score "+r.sc+"/"+(r.tot||6)+(r.plan&&!forming?" · SL "+fp(r.plan.sl)+" · TP "+fp(r.plan.tp)+mTxt(sym,r.plan.entry,r.plan.sl,r.plan.tp):""))}
+function alertEarly(name,e,sym){notify("Early "+e.side.toLowerCase()+" setup: "+name,"Limit "+fp(e.entry)+" · SL "+fp(e.sl)+" · TP "+fp(e.tp)+" · R:R "+e.rr.toFixed(1)+mTxt(sym,e.entry,e.sl,e.tp))}
+function alertSignal(r,last){alertFor($("sym").selectedOptions[0].text,r,last,false,$("sym").value)}
+function analyseNow(){const P=params(),closed=candles.slice(0,-1),need=Math.max(P.e,P.s)+10;
+if(closed.length<need){$("out").innerHTML=`<div class="card warn">Waiting for enough history (${closed.length}/${need} candles).</div>`;return}
+try{const r=analyse(closed,P);const cts=closed[closed.length-1].t,tfn=+$("tf").value;if(r.side!==lastSide)sigTs=cts;r.age=Math.round((cts-sigTs)/tfn);if(r.early){if(lastEarly!==r.early.side)earlyTs=cts;r.early.age=Math.round((cts-earlyTs)/tfn)}lastR=r;render(r);if(parts($("sym").value)){const nh=newsHtml();$("out").innerHTML+=`<div class="card note">📅 ${nh?"":"Check the economic calendar below for high-impact news before acting on this signal."}${nh}</div>`}const last=closed[closed.length-1].c;
+if(r.side!=="WAIT"&&r.side!==lastSide&&!scanCovers($("sym").value)){hist.unshift({side:r.side,name:$("sym").selectedOptions[0].text,tf:$("tf").selectedOptions[0].text,price:fp(last),score:r.sc,tot:r.tot,sl:r.plan?fp(r.plan.sl):"",tp:r.plan?fp(r.plan.tp):"",time:new Date().toLocaleString(),...histX($("sym").value,+$("tf").value,closed[closed.length-1].t,r.plan.entry,r.plan.sl,r.plan.tp)});hist=hist.slice(0,15);store.set("hist",JSON.stringify(hist));drawHist();trkAdd("C",$("sym").value,$("sym").selectedOptions[0].text,+$("tf").value,r.side,r.plan.entry,r.plan.sl,r.plan.tp,closed[closed.length-1].t);if(!first)alertSignal(r,last)}
+if(!scanCovers($("sym").value)){const e=r.early;if(e&&lastEarly!==e.side){const nm=$("sym").selectedOptions[0].text;trkAdd("E",$("sym").value,nm,+$("tf").value,e.side,e.entry,e.sl,e.tp,closed[closed.length-1].t);
+hist.unshift({side:e.side,kind:"Early",name:nm,tf:$("tf").selectedOptions[0].text,price:fp(e.entry),score:r.sc,tot:r.tot,sl:fp(e.sl),tp:fp(e.tp),time:new Date().toLocaleString(),...histX($("sym").value,+$("tf").value,closed[closed.length-1].t,e.entry,e.sl,e.tp)});hist=hist.slice(0,15);store.set("hist",JSON.stringify(hist));drawHist();if(!first)alertEarly(nm,e,$("sym").value)}}
+lastEarly=r.early?r.early.side:null;
+lastSide=r.side;first=false}catch(e){$("out").innerHTML=`<div class="card warn">Analysis error: ${e.message}</div>`}}
+function update(newBar){lastTick=Date.now();trkResolve($("sym").value,+$("tf").value,candles);const l=candles[candles.length-1];if(l)$("price").textContent=fp(l.c);if(newBar)analyseNow()}
+function connectCB(){lastTick=0;const prod=$("sym").value.slice(3),g=+$("tf").value;
+if(![60,300,900,3600].includes(g)){setStatus("Crypto supports 1 min, 5 min, 15 min and 1 hour. Please change the timeframe.","var(--dn)");return}
+setStatus("Connecting to crypto prices…");
+const load=async()=>{try{const r=await fetch(`https://api.exchange.coinbase.com/products/${prod}/candles?granularity=${g}`);if(!r.ok)throw 0;const d=await r.json();
+const arr=d.slice().reverse().map(k=>({t:+k[0],o:+k[3],h:+k[2],l:+k[1],c:+k[4]}));if(!arr.length)throw 0;
+const had=candles.length?candles[candles.length-1].t:0;candles=arr;setStatus("Live (prices refresh every 30 seconds)","var(--up)");update(!had||arr[arr.length-1].t!==had)}
+catch(e){setStatus("Crypto prices unavailable. Retrying…","var(--dn)")}};
+load();poll=setInterval(load,30000)}
+function connect(){if(ws){ws.onclose=null;ws.onerror=null;ws.close()}candles=[];lastSide=null;first=true;lastEarly=null;clearInterval(poll);if($("sym").value.startsWith("cb:")){connectCB();return}
+setStatus("Connecting…");let url=$("ep").value.trim()||WS_DEFAULT;
+try{ws=new WebSocket(url)}catch(e){setStatus("Bad endpoint address","var(--dn)");return}
+ws.onopen=()=>{setStatus("Connected, loading history…","var(--wn)");
+ws.send(JSON.stringify({ticks_history:$("sym").value,style:"candles",granularity:+$("tf").value,count:400,end:"latest",adjust_start_time:1,subscribe:1}))};
+ws.onmessage=e=>{const m=JSON.parse(e.data);
+if(m.error){setStatus("API error: "+m.error.message,"var(--dn)");return}
+if(m.msg_type==="candles"){candles=m.candles.map(k=>({t:+k.epoch,o:+k.open,h:+k.high,l:+k.low,c:+k.close}));{const fx=$("sym").value.startsWith("frx"),age=Date.now()/1000-candles[candles.length-1].t;if(fx&&age>3*(+$("tf").value)+120)setStatus("Showing the last available prices. The forex market looks closed.","var(--wn)");else setStatus("Live","var(--up)");update(true)}}
+else if(m.msg_type==="ohlc"){const k=m.ohlc,t=+k.open_time,x={t,o:+k.open,h:+k.high,l:+k.low,c:+k.close},l=candles[candles.length-1];
+if(l&&l.t===t){candles[candles.length-1]=x;update(false)}else{candles.push(x);if(candles.length>500)candles.shift();update(true)}}};
+ws.onerror=()=>setStatus("Connection error","var(--dn)");
+ws.onclose=()=>{setStatus("Disconnected, retrying…","var(--dn)");setTimeout(()=>{if(!ws||ws.readyState>1)connect()},3000)}}
+["sym","tf","ep"].forEach(id=>$(id).onchange=()=>{store.set(id,$(id).value);if(id==="sym")drawCal();else scanRestart();connect()});
+["pEma","pRsi","pAtr","pSw"].forEach(id=>$(id).onchange=()=>{analyseNow()});
+$("alerts").onclick=()=>{try{Notification.requestPermission().then(p=>{$("alerts").textContent=p==="granted"?"Alerts on":"Alerts blocked"})}catch(e){$("alerts").textContent="Alerts not supported here"}};
+setInterval(()=>{const fx=$("sym").value.startsWith("frx"),lim=fx?180000:$("sym").value.startsWith("cb:")?120000:30000;if(lastTick&&Date.now()-lastTick>lim){setStatus(fx?"No new prices for 3 min. The forex market may be closed (weekends and holidays). Retrying…":"No data for 30s, reconnecting…","var(--dn)");lastTick=0;connect()}},5000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){if(!ws||ws.readyState>1)connect();scanKeepAlive()}});
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+const CC={USD:"us",EUR:"eu",GBP:"gb",JPY:"jp",AUD:"au",CAD:"ca",CHF:"ch",NZD:"nz",XAU:"us"};
+function parts(sym){let m=sym.match(/^frx([A-Z]{3})([A-Z]{3})$/);if(m)return[m[1],m[2]];m=sym.match(/^cb:([A-Z0-9]+)-([A-Z]+)$/);return m?[m[1],m[2]]:null}
+function pairCountries(sym){if(sym.startsWith("cb:"))return["us"];const m=sym.match(/^frx([A-Z]{3})([A-Z]{3})$/);return m?[...new Set([CC[m[1]],CC[m[2]]].filter(Boolean))]:null}
+function drawCal(){try{const c=pairCountries($("sym").value),box=$("cal");box.innerHTML="";$("newsBox").innerHTML=newsHtml();fillNews();fillSpec();
+if(!c){$("calCtl").style.display="none";$("calNote").textContent="Synthetic indices are generated by an algorithm, so economic news does not move them. Choose a forex pair to see the events for its currencies.";return}
+$("calCtl").style.display="";$("calNote").textContent="Showing events for "+c.map(x=>x.toUpperCase()).join(" and ")+". Calendar by TradingView. The news check uses a free, unofficial Forex Factory feed and may be unavailable.";
+const th=document.documentElement.getAttribute("data-theme"),dark=th==="dark"||(th!=="light"&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches);
+const w=document.createElement("div");w.className="tradingview-widget-container";
+const sc=document.createElement("script");sc.src="https://s3.tradingview.com/external-embedding/embed-widget-events.js";sc.async=true;
+sc.text=JSON.stringify({colorTheme:dark?"dark":"light",isTransparent:true,width:"100%",height:"480",locale:"en",importanceFilter:$("calImp").value,countryFilter:c.join(",")});
+w.appendChild(sc);box.appendChild(w)}catch(e){}}
+$("calImp").onchange=drawCal;
+const FEED="https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+let news=[];
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function loadNews(){try{const c=JSON.parse(store.get("newsCache","null"));
+if(c&&Date.now()-c.t<1800000){news=c.d;return}
+const r=await fetch(FEED);if(!r.ok)throw 0;const d=await r.json();
+news=d.filter(x=>x.impact==="High").map(x=>({t:Date.parse(x.date),cur:x.country,title:x.title,f:x.forecast||"",p:x.previous||""})).filter(x=>!isNaN(x.t));
+store.set("newsCache",JSON.stringify({t:Date.now(),d:news}))}catch(e){}}
+function newsHtml(){const pp=parts($("sym").value);if(!pp||!news.length)return"";
+const cur=pp.map(c=>c==="XAU"?"USD":c),now=Date.now();
+const n=news.filter(x=>cur.includes(x.cur)&&x.t>now-3600000&&x.t<now+14400000).sort((a,b)=>a.t-b.t);
+if(!n.length)return`<div class="note">✅ No high-impact news for this pair in the next 4 hours.</div>`;
+const ago=t=>{const k=Math.round((t-now)/60000),a=Math.abs(k),h=Math.floor(a/60),v=(h?h+"h ":"")+(a%60)+"m";return k>=0?"in "+v:v+" ago"};
+return`<div class="warn">⚠ High-impact news nearby: `+n.map(x=>esc(x.cur)+" "+esc(x.title)+" ("+ago(x.t)+")").join("; ")+`. Consider waiting until the market settles.</div>`}
+const FIAT=["USD","EUR","GBP","JPY","AUD","CAD","CHF","NZD"],LOWER_BETTER=/unemploy|jobless|claims/i;
+function num(t){t=String(t||"");const m=t.replace(/,/g,"").match(/-?\d+(\.\d+)?/);if(!m)return NaN;let v=parseFloat(m[0]);const u=t.toUpperCase();if(u.includes("K"))v*=1e3;else if(u.includes("M"))v*=1e6;else if(u.includes("B"))v*=1e9;return v}
+function fillNews(){try{const pp=parts($("sym").value),box=$("outBox");if(!pp){box.style.display="none";return}box.style.display="";
+const curs=pp.filter(c=>FIAT.includes(c)||c==="XAU").map(c=>c==="XAU"?"USD":c).concat(pp[1]==="USD"?["USD"]:[]).filter((c,i,a)=>FIAT.includes(c)&&a.indexOf(c)===i);
+const ev=news.filter(x=>curs.includes(x.cur)).sort((a,b)=>a.t-b.t),key=$("sym").value+"|"+ev.length;if(fillNews.key===key)return;fillNews.key=key;fillNews.ev=ev;
+$("nEv").innerHTML='<option value="-1">Type my own</option>'+ev.map((x,i)=>`<option value="${i}">${esc(x.cur)} ${esc(x.title)} · ${new Date(x.t).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"})}</option>`).join("");
+$("nCur").innerHTML=curs.map(c=>`<option>${c}</option>`).join("")}catch(e){}}
+$("nEv").onchange=()=>{const x=(fillNews.ev||[])[+$("nEv").value];if(!x)return;$("nCur").value=x.cur;$("nFc").value=x.f||"";$("nDir").value=LOWER_BETTER.test(x.title)?"-1":"1"};
+function readNews(){const pp=parts($("sym").value),R=$("nRes");if(!pp){R.innerHTML="";return}
+const a=num($("nAc").value),f=num($("nFc").value);
+if(isNaN(a)||isNaN(f)){R.innerHTML=`<div class="warn">Enter both the forecast and the actual result as numbers (for example 3.4 or 215K).</div>`;return}
+const cur=$("nCur").value,dir=+$("nDir").value,sur=(a-f)/(Math.abs(f)||1)*100,s=Math.abs(sur);
+const cb=s<0.5?0:(sur*dir>0?1:-1),pb=cur===pp[1]?-cb:cur===pp[0]?cb:0;
+const name=$("sym").selectedOptions[0].text,side=pb>0?"BUY":pb<0?"SELL":"WAIT",tech=lastR?lastR.side:null;
+const size=s<5?"a small":s<15?"a moderate":"a large";
+let v;
+if(pb===0)v=`The result was in line with the forecast, so the news gives no edge. Follow the chart signal only${tech?" (currently "+tech+")":""}.`;
+else if(tech===side)v=`✅ Confirmed: the chart signal and the news agree, so the trade plan above applies.`;
+else if(tech==="BUY"||tech==="SELL")v=`⛔ Conflict: the news points ${side} but the chart says ${tech}. Staying out is safer.`;
+else v=`The news points ${side}, but the chart has no confirmed setup${lastR&&lastR.forming?" (a "+lastR.dir+" setup is forming)":""}. Wait for a pullback and a technical signal instead of chasing the first spike.`;
+const why=cb===0?`Actual ${esc($("nAc").value)} vs forecast ${esc($("nFc").value)}: in line with expectations.`:
+`Actual ${esc($("nAc").value)} vs forecast ${esc($("nFc").value)}: ${sur>0?"above":"below"} forecast by ${s.toFixed(1)}% (${size} surprise). That is ${cb>0?"better":"worse"} than expected for ${cur}, so ${cur} is likely ${cb>0?"stronger":"weaker"}.`;
+const eff=pb===0?"":`${cur} is the ${cur===pp[0]?"base":"quote"} currency of ${esc(name)}, so this favours ${pb>0?"buying":"selling"} the pair.`;
+R.innerHTML=`<div class="card" style="margin:10px 0 0"><p class="sig ${side}" style="font-size:22px">News bias: ${side==="WAIT"?"NEUTRAL":side}</p>
+<ul><li><span class="ok">1</span><span>${why}</span></li>${eff?`<li><span class="ok">2</span><span>${eff}</span></li>`:""}<li><span class="ok">→</span><span>${v}</span></li></ul>
+<p class="note">Markets sometimes react the opposite way when a result was already priced in, and the first move often reverses. Treat this as a bias, not a prediction.</p></div>`}
+$("nGo").onclick=readNews;
+const DEF_WATCH=["R_10","R_25","R_50","R_75","R_100","frxEURUSD","frxGBPUSD","frxUSDJPY","frxAUDUSD","frxUSDCAD","cb:BTC-USD","cb:ETH-USD"];
+let sws=null,scanOn=false,scan={},scanTF=300,scanPollT=0,wl=null,watch=[];
+try{watch=JSON.parse(store.get("watch",""))}catch(e){watch=null}if(!Array.isArray(watch))watch=DEF_WATCH.slice();
+const nameOf=x=>(SYMS.find(v=>v[0]===x)||[0,x])[1],tfName=g=>(TFS.find(v=>v[0]===g)||[0,""])[1];
+function scanCovers(sym){return scanOn&&watch.includes(sym)&&scanTF===+$("tf").value&&scan[sym]&&scan[sym].r}
+function openMarket(sym){$("sym").value=sym;store.set("sym",sym);drawCal();connect();window.scrollTo(0,0)}
+function scanRender(){clearTimeout(scanRender.t);scanRender.t=setTimeout(()=>{
+const rank=d=>d.err?4:!d.r?3:d.r.side!=="WAIT"?0:d.r.forming||d.r.early?1:2,rows=watch.map(x=>({x,d:scan[x]||{}}));
+rows.sort((a,b)=>rank(a.d)-rank(b.d)||((b.d.r?b.d.r.sc:0)-(a.d.r?a.d.r.sc:0)));
+$("scanList").innerHTML=scanOn?rows.map(({x,d})=>{const r=d.r;let lab;
+if(d.err)lab=`<b class="WAIT">Unavailable</b>`;else if(!r)lab=`<b class="note">Loading…</b>`;else if(r.side!=="WAIT")lab=`<b class="${r.side}">${r.side}</b>`;else if(r.early)lab=`<b class="WAIT">Early ${r.early.toLowerCase()}</b>`;else if(r.forming)lab=`<b class="WAIT">Forming (${r.dir})</b>`;else lab=`<b class="note">Wait</b>`;
+return`<div class="h sr" data-s="${x}" style="display:flex;justify-content:space-between;gap:8px;cursor:pointer"><span>${lab} ${esc(nameOf(x))}</span><span class="note">${d.err?esc(d.err):(d.price?fp(d.price)+(r?" · "+r.sc+"/"+r.tot:""):"")}</span></div>`}).join(""):""},400)}
+function scanEval(sym,newBar){const d=scan[sym];if(!d||!d.candles.length)return;d.price=d.candles[d.candles.length-1].c;d.err=null;trkResolve(sym,scanTF,d.candles);
+if(newBar||!d.r){const P=params(),closed=d.candles.slice(0,-1);
+if(closed.length>=Math.max(P.e,P.s)+10){try{const r=analyse(closed,P),px=closed[closed.length-1].c,name=nameOf(sym);d.r={side:r.side,sc:r.sc,dir:r.dir,tot:r.tot,forming:r.forming,early:r.early?r.early.side:null};
+if(r.side!=="WAIT"&&r.side!==d.lastSide){hist.unshift({side:r.side,name,tf:tfName(scanTF),price:fp(px),score:r.sc,tot:r.tot,sl:r.plan?fp(r.plan.sl):"",tp:r.plan?fp(r.plan.tp):"",time:new Date().toLocaleString(),...histX(sym,scanTF,closed[closed.length-1].t,r.plan.entry,r.plan.sl,r.plan.tp)});hist=hist.slice(0,15);store.set("hist",JSON.stringify(hist));drawHist();trkAdd("C",sym,name,scanTF,r.side,r.plan.entry,r.plan.sl,r.plan.tp,closed[closed.length-1].t);if(!d.first)alertFor(name,r,px,false,sym)}
+const forming=r.forming;if(forming&&!d.wasForming&&!d.first&&$("scanForm").checked)alertFor(name,r,px,true);
+const e=r.early;if(e&&d.earlySide!==e.side){trkAdd("E",sym,name,scanTF,e.side,e.entry,e.sl,e.tp,closed[closed.length-1].t);
+hist.unshift({side:e.side,kind:"Early",name,tf:tfName(scanTF),price:fp(e.entry),score:r.sc,tot:r.tot,sl:fp(e.sl),tp:fp(e.tp),time:new Date().toLocaleString(),...histX(sym,scanTF,closed[closed.length-1].t,e.entry,e.sl,e.tp)});hist=hist.slice(0,15);store.set("hist",JSON.stringify(hist));drawHist();if(!d.first&&$("scanEarly").checked)alertEarly(name,e,sym)}
+d.earlySide=e?e.side:null;d.wasForming=forming;d.lastSide=r.side;d.first=false}catch(e){}}}
+scanRender()}
+function scanMerge(d,k){const t=+k.open_time,x={t,o:+k.open,h:+k.high,l:+k.low,c:+k.close},l=d.candles[d.candles.length-1];
+if(l&&l.t===t){d.candles[d.candles.length-1]=x;return false}d.candles.push(x);if(d.candles.length>400)d.candles.shift();return true}
+function scanConnectDeriv(){const syms=watch.filter(x=>!x.startsWith("cb:"));if(sws){sws.onclose=null;sws.close();sws=null}if(!syms.length||!scanOn)return;
+try{sws=new WebSocket($("ep").value.trim()||WS_DEFAULT)}catch(e){return}const me=sws;
+me.onopen=()=>syms.forEach((x,i)=>setTimeout(()=>{if(me.readyState===1)me.send(JSON.stringify({ticks_history:x,style:"candles",granularity:scanTF,count:300,end:"latest",adjust_start_time:1,subscribe:1}))},i*250));
+me.onmessage=e=>{const m=JSON.parse(e.data);
+if(m.error){const x=m.echo_req&&m.echo_req.ticks_history;if(x&&scan[x]){scan[x].err="No data";scanRender()}return}
+if(m.msg_type==="candles"){const x=m.echo_req.ticks_history,d=scan[x];if(!d)return;d.candles=m.candles.map(k=>({t:+k.epoch,o:+k.open,h:+k.high,l:+k.low,c:+k.close}));scanEval(x,true)}
+else if(m.msg_type==="ohlc"){const k=m.ohlc,d=scan[k.symbol];if(!d)return;scanEval(k.symbol,scanMerge(d,k))}};
+me.onclose=()=>{if(scanOn)setTimeout(()=>{if(scanOn&&sws===me)scanConnectDeriv()},4000)}}
+function scanPollCB(){clearInterval(scanPollT);const prods=watch.filter(x=>x.startsWith("cb:"));if(!prods.length||!scanOn)return;
+if(![60,300,900,3600].includes(scanTF)){prods.forEach(x=>{scan[x].err="Timeframe not offered for crypto"});scanRender();return}
+const run=async()=>{for(const x of prods){if(!scanOn)return;try{const r=await fetch(`https://api.exchange.coinbase.com/products/${x.slice(3)}/candles?granularity=${scanTF}`);if(!r.ok)throw 0;const a=(await r.json()).slice().reverse().map(k=>({t:+k[0],o:+k[3],h:+k[2],l:+k[1],c:+k[4]}));if(!a.length)throw 0;
+const d=scan[x],had=d.candles.length?d.candles[d.candles.length-1].t:0;d.candles=a;scanEval(x,!had||a[a.length-1].t!==had)}catch(e){scan[x].err="No data";scanRender()}
+await new Promise(r=>setTimeout(r,400))}};
+run();scanPollT=setInterval(run,30000)}
+let wake=null;
+async function scanWake(on){try{if(on&&"wakeLock" in navigator&&!wake){wake=await navigator.wakeLock.request("screen");wake.addEventListener("release",()=>{wake=null})}else if(!on&&wake){await wake.release();wake=null}}catch(e){}}
+function scanStop(keep){scanOn=false;if(sws){sws.onclose=null;sws.close();sws=null}clearInterval(scanPollT);scanWake(false);
+if(!keep){store.set("scanOn","0");$("scanBtn").textContent="Start scanning";$("scanSt").textContent="Scanner stopped.";scanRender()}}
+function scanStart(){scanStop(true);if(!watch.length){$("scanSt").textContent="Pick at least one market below.";return}
+try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();AC.resume()}catch(e){}
+scanOn=true;store.set("scanOn","1");scanTF=+$("tf").value;scan={};watch.forEach(x=>{scan[x]={candles:[],first:true}});
+$("scanBtn").textContent="Stop scanning";$("scanSt").textContent="Scanning "+watch.length+" markets on "+tfName(scanTF)+" candles. Keep this page open, because alerts stop if the page is closed or the phone sleeps.";
+scanRender();scanConnectDeriv();scanPollCB();if($("scanWake").checked)scanWake(true)}
+function scanRestart(){if(scanOn)scanStart()}
+function scanKeepAlive(){if(!scanOn)return;if(watch.some(x=>!x.startsWith("cb:"))&&(!sws||sws.readyState>1))scanConnectDeriv();if($("scanWake").checked)scanWake(true)}
+$("scanBtn").onclick=()=>scanOn?scanStop():scanStart();
+$("scanWake").onchange=()=>scanWake(scanOn&&$("scanWake").checked);
+$("scanList").onclick=e=>{const r=e.target.closest&&e.target.closest(".sr");if(r)openMarket(r.dataset.s)};
+$("alertBar").onclick=()=>{$("alertBar").style.display="none"};
+{const g={};SYMS.forEach(x=>(g[x[2]]=g[x[2]]||[]).push(x));
+$("scanPick").innerHTML=Object.keys(g).map(k=>`<div class="note"><b>${k}</b></div><div>`+g[k].map(x=>`<label style="display:inline-block;margin:3px 12px 3px 0;font-size:13px"><input type="checkbox" class="wc" value="${x[0]}"${watch.includes(x[0])?" checked":""}> ${esc(x[1])}</label>`).join("")+`</div>`).join("");
+document.querySelectorAll&&$("scanPick").querySelectorAll&&$("scanPick").querySelectorAll(".wc").forEach(c=>{c.onchange=()=>{watch=[...$("scanPick").querySelectorAll(".wc")].filter(i=>i.checked).map(i=>i.value);store.set("watch",JSON.stringify(watch));scanRestart()}})}
+setInterval(scanKeepAlive,15000);
+let specs={};try{specs=JSON.parse(store.get("specs","{}"))||{}}catch(e){specs={}}
+let bal=parseFloat(store.get("bal","0"))||0;
+function defSpec(sym){const m=sym.match(/^frx([A-Z]{3})([A-Z]{3})$/);if(!m)return null;
+if(m[1]==="XAU")return{minLot:0.01,cs:100};if(m[2]==="USD")return{minLot:0.01,cs:100000};if(m[1]==="USD")return{minLot:0.01,cs:100000,dyn:1};return null}
+const specFor=sym=>specs[sym]||defSpec(sym);
+function money(sym,entry,sl,tp){const s=specFor(sym);if(!s||!(entry>0))return null;const cs=s.dyn?s.cs/entry:s.cs,lot=s.minLot,risk=lot*cs*Math.abs(entry-sl),rew=lot*cs*Math.abs(tp-entry);
+return{lot,risk,rew,pct:bal?risk/bal*100:null,def:!specs[sym]}}
+const usd=v=>"$"+(v>=100?v.toFixed(0):v>=1?v.toFixed(2):v.toFixed(3)),lotTxt=l=>String(+l.toFixed(4));
+const dur=sec=>{const m=Math.round(sec/60);return m<60?m+" min":Math.floor(m/60)+"h"+(m%60?" "+m%60+"m":"")};
+function ageNote(k,tfs,early){const st=early?(k<=20?"limit order still valid":"expired, cancel it"):(k<=3?"fresh":k<=6?"ageing, be careful chasing":"stale, skip it");
+return k===0?"just formed · "+st:k+" candle"+(k===1?"":"s")+" old ("+dur(k*tfs)+") · "+st}
+function moneyHtml(mo){if(!mo)return`<p class="note">Add this market’s minimum lot and contract size under Position settings to see the money values.</p>`;
+return`<div class="plan"><div><b>Lot size (minimum)</b>${lotTxt(mo.lot)}</div><div><b>Stop loss amount</b>−${usd(mo.risk)}</div><div><b>Expected profit (if TP hit)</b>+${usd(mo.rew)}</div><div><b>${mo.pct===null?"Reward to risk":"Risk of balance"}</b>${mo.pct===null?(mo.rew/mo.risk).toFixed(1)+" : 1":mo.pct.toFixed(1)+"%"}</div></div>`
++(mo.pct!==null&&mo.pct>5?`<p class="warn">⚠ Even the minimum lot risks ${mo.pct.toFixed(1)}% of your balance, well above the usual 1–2%. Consider skipping this trade or using an account with smaller lots.</p>`:"")
++(mo.def?`<p class="note">Based on typical contract specs. Confirm them under Position settings.</p>`:"")}
+function histX(sym,tfs,ts,entry,sl,tp){const mo=money(sym,entry,sl,tp);return{sym,tfs,ts,lot:mo?mo.lot:0,risk:mo?mo.risk:0,rew:mo?mo.rew:0}}
+function fillSpec(){try{const sym=$("sym").value,sp=specFor(sym);$("pBal").value=bal||"";$("pLot").value=sp?sp.minLot:"";$("pCs").value=sp?sp.cs:"";$("pMk").textContent=$("sym").selectedOptions[0].text;
+$("pNote").textContent=sp?(specs[sym]?"Using your saved numbers for this market.":"Using typical specs for this market. Please confirm them in your platform (MT5: Market Watch, right-click the symbol, Specification)."):"No default for this market. Enter its minimum lot and contract size from your platform (MT5: Market Watch, right-click the symbol, Specification)."}catch(e){}}
+$("pSave").onclick=()=>{const sym=$("sym").value,lot=parseFloat($("pLot").value),cs=parseFloat($("pCs").value);bal=parseFloat($("pBal").value)||0;store.set("bal",String(bal));
+if(lot>0&&cs>0){const d=defSpec(sym);specs[sym]={minLot:lot,cs};if(d&&d.dyn&&cs===d.cs)specs[sym].dyn=1;store.set("specs",JSON.stringify(specs))}
+fillSpec();drawHist();analyseNow()};
+let trk={open:[],done:[]};
+try{const t=JSON.parse(store.get("trk",""));if(t&&Array.isArray(t.open)&&Array.isArray(t.done))trk=t}catch(e){}
+const trkSave=()=>store.set("trk",JSON.stringify({open:trk.open.slice(0,60),done:trk.done.slice(0,400)}));
+function trkAdd(k,sym,name,tf,side,entry,sl,tp,ts){const id=[k,sym,tf,side,ts].join("|");if(trk.open.some(x=>x.id===id)||trk.done.some(x=>x.id===id))return;
+const risk=Math.abs(entry-sl),rr=risk?Math.abs(tp-entry)/risk:0;if(!risk||rr<=0)return;
+trk.open.unshift({id,k,sym,name,tf,side,entry,sl,tp,rr,ts,st:k==="E"?"pend":"open",r:null});trkSave();trkRender()}
+function trkClose(x,st,r){x.st=st;x.r=r;x.at=Date.now();trk.open=trk.open.filter(y=>y!==x);trk.done.unshift(x)}
+function trkResolve(sym,tf,cs){let ch=false;
+for(const x of trk.open.slice()){if(x.sym!==sym||x.tf!==tf)continue;const b=x.side==="BUY",risk=Math.abs(x.entry-x.sl);
+for(const k of cs){if(k.t<=x.ts)continue;const age=(k.t-x.ts)/tf,hitSL=b?k.l<=x.sl:k.h>=x.sl,hitTP=b?k.h>=x.tp:k.l<=x.tp;
+if(x.st==="pend"){const fill=b?k.l<=x.entry:k.h>=x.entry;
+if(fill){x.st="open";ch=true;if(hitSL){trkClose(x,"loss",-1);break}continue}
+if(hitTP||age>20){trkClose(x,"miss",null);ch=true;break}continue}
+if(hitSL){trkClose(x,"loss",-1);ch=true;break}
+if(hitTP){trkClose(x,"win",x.rr);ch=true;break}
+if(age>150){const m=(b?k.c-x.entry:x.entry-k.c)/risk;trkClose(x,"exp",Math.max(-1,Math.min(x.rr,m)));ch=true;break}}}
+if(ch){trkSave();trkRender()}}
+function trkStats(a){const c=a.filter(x=>x.r!==null),w=c.filter(x=>x.r>0),net=c.reduce((q,x)=>q+x.r,0),gp=w.reduce((q,x)=>q+x.r,0),gl=c.filter(x=>x.r<=0).reduce((q,x)=>q-x.r,0);
+return{n:c.length,wr:c.length?w.length/c.length:0,net,pf:gl>0?gp/gl:null,be:c.length?1/(1+c.reduce((q,x)=>q+x.rr,0)/c.length):0}}
+const sgR=v=>(v>=0?"+":"")+v.toFixed(1)+"R";
+function trkRender(){const el=$("trk");if(!el)return;const D=trk.done,S=trkStats(D),C=trkStats(D.filter(x=>x.k==="C")),E=trkStats(D.filter(x=>x.k==="E"));
+const line=(t,s)=>`<div class="h" style="display:flex;justify-content:space-between;gap:8px"><span>${t}</span><span class="note">${s.n?s.n+" trades · "+(s.wr*100).toFixed(0)+"% won (needs "+(s.be*100).toFixed(0)+"%) · "+sgR(s.net):"no results yet"}</span></div>`;
+const by={};D.forEach(x=>{(by[x.name]=by[x.name]||[]).push(x)});
+const rows=Object.keys(by).map(k=>({k,s:trkStats(by[k])})).filter(x=>x.s.n).sort((a,b)=>b.s.net-a.s.net).slice(0,8);
+const op=trk.open.filter(x=>x.st==="open").length,pe=trk.open.filter(x=>x.st==="pend").length;
+el.innerHTML=`<p class="note">${op} open, ${pe} waiting to fill. Results are simulated from candle highs and lows.</p><div class="plan"><div><b>Trades closed</b>${S.n}</div><div><b>Win rate</b>${S.n?(S.wr*100).toFixed(0)+"%":"–"}</div><div><b>Profit factor</b>${S.pf===null?"–":S.pf.toFixed(2)}</div><div><b>Net result</b>${S.n?sgR(S.net):"–"}</div></div>`+
+line("Confirmed signals",C)+line("Early entries",E)+(rows.length?`<p class="note" style="margin:10px 0 2px">By market (best first)</p>`+rows.map(x=>line(esc(x.k),x.s)).join(""):"")+
+`<p class="note">R is your risk per trade: +2R means winning twice what you risked, and −1R is a full stop-out. “Needs” is the win rate required to break even at that reward to risk. ${S.n<30?"With fewer than 30 closed trades these numbers mean very little. ":""}Real trading does a bit worse because of spreads and slippage.</p>`}
+$("trkReset").onclick=()=>{if(typeof confirm!=="function"||confirm("Clear the scorecard?")){trk={open:[],done:[]};trkSave();trkRender()}};
+trkRender();setInterval(drawHist,30000);
+drawHist();drawCal();connect();
+if(store.get("scanOn","0")==="1")scanStart();
+loadNews().then(()=>{$("newsBox").innerHTML=newsHtml();fillNews()});
+setInterval(()=>{loadNews().then(()=>{$("newsBox").innerHTML=newsHtml();fillNews()})},600000);
+setInterval(()=>{$("newsBox").innerHTML=newsHtml()},60000);
+
+</script>
+</body>
+</html>
