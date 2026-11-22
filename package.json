@@ -1,0 +1,30 @@
+{
+ "name": "signal-lab-live",
+ "version": "1.0.0",
+ "description": "Live signal app for Deriv synthetic indices",
+ "main": "main.js",
+ "scripts": {
+  "start": "electron .",
+  "build:exe": "electron-builder --win portable"
+ },
+ "dependencies": {
+  "@capacitor/android": "^6.1.0",
+  "@capacitor/cli": "^6.1.0",
+  "@capacitor/core": "^6.1.0"
+ },
+ "devDependencies": {
+  "electron": "^33.0.0",
+  "electron-builder": "^25.0.0"
+ },
+ "build": {
+  "appId": "com.signallab.live",
+  "productName": "Signal Lab Live",
+  "files": [
+   "main.js",
+   "www/**"
+  ],
+  "win": {
+   "target": "portable"
+  }
+ }
+}
